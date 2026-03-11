@@ -1,110 +1,244 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { supabaseAdmin } from "./supabase";
 import { Listing, Contact, BlogPost } from "./types";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-
-async function ensureDir() {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-  } catch {}
-}
-
-async function readJSON<T>(file: string): Promise<T[]> {
-  await ensureDir();
-  try {
-    const data = await fs.readFile(path.join(DATA_DIR, file), "utf-8");
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-async function writeJSON<T>(file: string, data: T[]): Promise<void> {
-  await ensureDir();
-  await fs.writeFile(path.join(DATA_DIR, file), JSON.stringify(data, null, 2));
-}
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
 function slugify(make: string, model: string, reg: string): string {
-  return `${make}-${model}-${reg}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return `${make}-${model}-${reg}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 // Listings
 export async function getListings(): Promise<Listing[]> {
-  return readJSON<Listing>("listings.json");
+  const { data, error } = await supabaseAdmin
+    .from("listings")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching listings:", error.message);
+    return [];
+  }
+  return (data || []).map(mapListingRow);
 }
 
 export async function getApprovedListings(): Promise<Listing[]> {
-  const listings = await getListings();
-  return listings.filter((l) => l.status === "approved");
+  const { data, error } = await supabaseAdmin
+    .from("listings")
+    .select("*")
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching approved listings:", error.message);
+    return [];
+  }
+  return (data || []).map(mapListingRow);
 }
 
-export async function getListingBySlug(slug: string): Promise<Listing | undefined> {
-  const listings = await getListings();
-  return listings.find((l) => l.slug === slug);
+export async function getListingBySlug(
+  slug: string
+): Promise<Listing | undefined> {
+  const { data, error } = await supabaseAdmin
+    .from("listings")
+    .select("*")
+    .eq("slug", slug)
+    .single();
+
+  if (error || !data) return undefined;
+  return mapListingRow(data);
 }
 
-export async function createListing(data: Omit<Listing, "id" | "slug" | "created_at" | "status" | "featured">): Promise<Listing> {
-  const listings = await getListings();
-  const listing: Listing = {
-    ...data,
-    id: generateId(),
-    slug: slugify(data.make, data.model, data.reg),
+export async function createListing(
+  data: Omit<Listing, "id" | "slug" | "created_at" | "status" | "featured">
+): Promise<Listing> {
+  const id = generateId();
+  const slug = slugify(data.make, data.model, data.reg);
+
+  const row = {
+    id,
+    slug,
     status: "pending",
     featured: false,
-    created_at: new Date().toISOString(),
+    reg: data.reg,
+    make: data.make,
+    model: data.model,
+    year: data.year,
+    colour: data.colour,
+    fuel: data.fuel,
+    mileage: data.mileage,
+    mot_expiry: data.mot_expiry || null,
+    price: data.price,
+    condition: data.condition,
+    known_faults: data.known_faults,
+    description: data.description,
+    photos: data.photos || [],
+    seller_id: data.seller_id,
+    seller_name: data.seller_name,
+    seller_email: data.seller_email,
+    seller_phone: data.seller_phone,
+    location: data.location,
+    postcode: data.postcode,
   };
-  listings.push(listing);
-  await writeJSON("listings.json", listings);
-  return listing;
+
+  const { data: inserted, error } = await supabaseAdmin
+    .from("listings")
+    .insert(row)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating listing:", error.message);
+    throw new Error("Failed to create listing");
+  }
+
+  return mapListingRow(inserted);
 }
 
-export async function updateListingStatus(id: string, status: Listing["status"]): Promise<void> {
-  const listings = await getListings();
-  const idx = listings.findIndex((l) => l.id === id);
-  if (idx !== -1) {
-    listings[idx].status = status;
-    await writeJSON("listings.json", listings);
+export async function updateListingStatus(
+  id: string,
+  status: Listing["status"]
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("listings")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error updating listing status:", error.message);
   }
 }
 
 // Contacts
 export async function getContacts(): Promise<Contact[]> {
-  return readJSON<Contact>("contacts.json");
+  const { data, error } = await supabaseAdmin
+    .from("contacts")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching contacts:", error.message);
+    return [];
+  }
+  return (data || []).map(mapContactRow);
 }
 
-export async function createContact(data: Omit<Contact, "id" | "created_at">): Promise<Contact> {
-  const contacts = await getContacts();
-  const contact: Contact = {
-    ...data,
-    id: generateId(),
-    created_at: new Date().toISOString(),
-  };
-  contacts.push(contact);
-  await writeJSON("contacts.json", contacts);
-  return contact;
+export async function createContact(
+  data: Omit<Contact, "id" | "created_at">
+): Promise<Contact> {
+  const id = generateId();
+
+  const { data: inserted, error } = await supabaseAdmin
+    .from("contacts")
+    .insert({
+      id,
+      listing_id: data.listing_id,
+      buyer_name: data.buyer_name,
+      buyer_email: data.buyer_email,
+      buyer_phone: data.buyer_phone,
+      message: data.message,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating contact:", error.message);
+    throw new Error("Failed to create contact");
+  }
+
+  return mapContactRow(inserted);
 }
 
 // Blog posts
 export async function getBlogPosts(): Promise<BlogPost[]> {
-  return readJSON<BlogPost>("blog_posts.json");
+  const { data, error } = await supabaseAdmin
+    .from("blog_posts")
+    .select("*")
+    .eq("published", true)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching blog posts:", error.message);
+    return [];
+  }
+  return data || [];
 }
 
-export async function getBlogPostBySlug(slug: string): Promise<BlogPost | undefined> {
-  const posts = await getBlogPosts();
-  return posts.find((p) => p.slug === slug);
+export async function getBlogPostBySlug(
+  slug: string
+): Promise<BlogPost | undefined> {
+  const { data, error } = await supabaseAdmin
+    .from("blog_posts")
+    .select("*")
+    .eq("slug", slug)
+    .single();
+
+  if (error || !data) return undefined;
+  return data;
 }
 
-// Seed data for demo
+// Row mappers — Supabase returns slightly different shapes
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapListingRow(row: any): Listing {
+  return {
+    id: row.id,
+    reg: row.reg,
+    make: row.make || "",
+    model: row.model || "",
+    year: row.year || 0,
+    colour: row.colour || "",
+    fuel: row.fuel || "",
+    mileage: row.mileage || 0,
+    mot_expiry: row.mot_expiry || "",
+    price: row.price,
+    condition: row.condition,
+    known_faults: row.known_faults,
+    description: row.description || "",
+    photos: row.photos || [],
+    seller_id: row.seller_id || "",
+    seller_name: row.seller_name || "",
+    seller_email: row.seller_email || "",
+    seller_phone: row.seller_phone || "",
+    location: row.location || "",
+    postcode: row.postcode || "",
+    status: row.status,
+    featured: row.featured || false,
+    created_at: row.created_at,
+    slug: row.slug,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapContactRow(row: any): Contact {
+  return {
+    id: row.id,
+    listing_id: row.listing_id,
+    buyer_email: row.buyer_email,
+    buyer_name: row.buyer_name,
+    buyer_phone: row.buyer_phone || "",
+    message: row.message,
+    created_at: row.created_at,
+  };
+}
+
+// Seed data for demo — inserts if listings table is empty
 export async function seedDemoListings(): Promise<void> {
-  const existing = await getListings();
-  if (existing.length > 0) return;
+  const { count, error } = await supabaseAdmin
+    .from("listings")
+    .select("id", { count: "exact", head: true });
 
-  const demoListings: Listing[] = [
+  if (error) {
+    console.error("Error checking listings count:", error.message);
+    return;
+  }
+  if ((count || 0) > 0) return;
+
+  const demoListings = [
     {
       id: generateId(),
       reg: "YB14 KMF",
@@ -117,8 +251,10 @@ export async function seedDemoListings(): Promise<void> {
       mot_expiry: "2027-01-15",
       price: 1200,
       condition: "solid-runner",
-      known_faults: "Small scratch on rear bumper. Tyres will need replacing within 6 months.",
-      description: "Reliable daily driver. Used for school runs and commuting. Starts every time, good on fuel.",
+      known_faults:
+        "Small scratch on rear bumper. Tyres will need replacing within 6 months.",
+      description:
+        "Reliable daily driver. Used for school runs and commuting. Starts every time, good on fuel.",
       photos: [],
       seller_id: "demo1",
       seller_name: "Dave M",
@@ -128,7 +264,6 @@ export async function seedDemoListings(): Promise<void> {
       postcode: "M1 1AA",
       status: "approved",
       featured: true,
-      created_at: new Date().toISOString(),
       slug: "ford-focus-yb14kmf",
     },
     {
@@ -143,8 +278,10 @@ export async function seedDemoListings(): Promise<void> {
       mot_expiry: "2026-11-20",
       price: 850,
       condition: "minor-issues",
-      known_faults: "Engine management light on intermittently — likely O2 sensor. Paint fade on bonnet.",
-      description: "Great little runaround. Cheap insurance and tax. Perfect first car or second vehicle.",
+      known_faults:
+        "Engine management light on intermittently — likely O2 sensor. Paint fade on bonnet.",
+      description:
+        "Great little runaround. Cheap insurance and tax. Perfect first car or second vehicle.",
       photos: [],
       seller_id: "demo2",
       seller_name: "Sarah K",
@@ -154,7 +291,6 @@ export async function seedDemoListings(): Promise<void> {
       postcode: "LS1 1BA",
       status: "approved",
       featured: true,
-      created_at: new Date(Date.now() - 86400000).toISOString(),
       slug: "vauxhall-corsa-wf62hjn",
     },
     {
@@ -169,8 +305,10 @@ export async function seedDemoListings(): Promise<void> {
       mot_expiry: "2026-08-05",
       price: 1500,
       condition: "solid-runner",
-      known_faults: "Clutch is getting heavy — maybe 10k miles left. Rear wiper doesn't work.",
-      description: "High miles but drives mint. Diesel so very economical. Full service history up to 120k.",
+      known_faults:
+        "Clutch is getting heavy — maybe 10k miles left. Rear wiper doesn't work.",
+      description:
+        "High miles but drives mint. Diesel so very economical. Full service history up to 120k.",
       photos: [],
       seller_id: "demo3",
       seller_name: "Mike R",
@@ -180,7 +318,6 @@ export async function seedDemoListings(): Promise<void> {
       postcode: "B1 1BB",
       status: "approved",
       featured: false,
-      created_at: new Date(Date.now() - 172800000).toISOString(),
       slug: "volkswagen-golf-kn59lpr",
     },
     {
@@ -195,8 +332,10 @@ export async function seedDemoListings(): Promise<void> {
       mot_expiry: "2027-03-22",
       price: 950,
       condition: "minor-issues",
-      known_faults: "Dent on passenger door. AC doesn't blow cold. Otherwise solid.",
-      description: "Nice looking car, economical. MOT until March 2027 so loads of life left.",
+      known_faults:
+        "Dent on passenger door. AC doesn't blow cold. Otherwise solid.",
+      description:
+        "Nice looking car, economical. MOT until March 2027 so loads of life left.",
       photos: [],
       seller_id: "demo4",
       seller_name: "Jenny P",
@@ -206,7 +345,6 @@ export async function seedDemoListings(): Promise<void> {
       postcode: "L1 1JD",
       status: "approved",
       featured: true,
-      created_at: new Date(Date.now() - 259200000).toISOString(),
       slug: "peugeot-208-ey11wvm",
     },
     {
@@ -221,8 +359,10 @@ export async function seedDemoListings(): Promise<void> {
       mot_expiry: "2026-09-10",
       price: 700,
       condition: "rough-but-drives",
-      known_faults: "Rust on wheel arches. Exhaust is noisy. Passenger window slow to open. Needs new brake pads soon.",
-      description: "It's rough around the edges but it'll get you from A to B. Toyota reliability. Still starts first time every time.",
+      known_faults:
+        "Rust on wheel arches. Exhaust is noisy. Passenger window slow to open. Needs new brake pads soon.",
+      description:
+        "It's rough around the edges but it'll get you from A to B. Toyota reliability. Still starts first time every time.",
       photos: [],
       seller_id: "demo5",
       seller_name: "Chris T",
@@ -232,7 +372,6 @@ export async function seedDemoListings(): Promise<void> {
       postcode: "S1 2BJ",
       status: "approved",
       featured: false,
-      created_at: new Date(Date.now() - 345600000).toISOString(),
       slug: "toyota-yaris-bf58tyk",
     },
     {
@@ -248,7 +387,8 @@ export async function seedDemoListings(): Promise<void> {
       price: 1100,
       condition: "solid-runner",
       known_faults: "Minor stone chips on bonnet. Otherwise clean.",
-      description: "Low mileage, one lady owner. Perfect for someone who needs a reliable cheap car.",
+      description:
+        "Low mileage, one lady owner. Perfect for someone who needs a reliable cheap car.",
       photos: [],
       seller_id: "demo6",
       seller_name: "Pat W",
@@ -258,10 +398,15 @@ export async function seedDemoListings(): Promise<void> {
       postcode: "NE1 4ST",
       status: "approved",
       featured: true,
-      created_at: new Date(Date.now() - 432000000).toISOString(),
       slug: "nissan-micra-hj13nbv",
     },
   ];
 
-  await writeJSON("listings.json", demoListings);
+  const { error: insertError } = await supabaseAdmin
+    .from("listings")
+    .insert(demoListings);
+
+  if (insertError) {
+    console.error("Error seeding demo listings:", insertError.message);
+  }
 }
