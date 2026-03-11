@@ -3,6 +3,7 @@ import { getListingBySlug, getApprovedListings, seedDemoListings } from "@/lib/d
 import type { Metadata } from "next";
 import Link from "next/link";
 import ContactForm from "./ContactForm";
+import MOTBadge from "./MOTBadge";
 
 function conditionLabel(c: string) {
   switch (c) {
@@ -127,6 +128,14 @@ export default async function ListingPage({ params }: { params: { slug: string }
             </div>
             <p className="text-xs text-gray-400 mt-2">MOT data from DVLA. Verify at gov.uk/check-mot-history</p>
           </div>
+
+          {/* Live MOT status from DVSA */}
+          {listing.reg && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <h3 className="font-bold text-[#374151] mb-2">Live MOT Check (DVSA)</h3>
+              <MOTBadge reg={listing.reg} />
+            </div>
+          )}
 
           {/* Condition */}
           <div>

@@ -60,3 +60,40 @@ export interface VehicleData {
   engineCapacity: number;
   co2Emissions: number;
 }
+
+// DVSA MOT History API types
+
+export interface MOTDefect {
+  text: string;
+  type: "ADVISORY" | "MINOR" | "MAJOR" | "DANGEROUS" | "PRS" | "FAIL";
+  dangerous: boolean;
+}
+
+export interface MOTTest {
+  completedDate: string;
+  testResult: "PASSED" | "FAILED";
+  expiryDate?: string;
+  odometerValue: string;
+  odometerUnit: string;
+  odometerResultType: string;
+  motTestNumber: string;
+  defects?: MOTDefect[];
+}
+
+export interface MOTVehicle {
+  registration: string;
+  make: string;
+  model: string;
+  colour: string;
+  fuelType: string;
+  firstUsedDate: string;
+  manufactureYear?: string;
+  primaryColour: string;
+  registrationDate: string;
+  motTests: MOTTest[];
+}
+
+export interface MOTHistoryResponse {
+  vehicle: MOTVehicle;
+  motTests: MOTTest[];
+}
