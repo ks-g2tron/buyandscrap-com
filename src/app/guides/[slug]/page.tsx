@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { notFound } from "next/navigation";
 import { getUnsplashImage } from "@/lib/unsplash";
+import { marked } from "marked";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -119,43 +120,13 @@ function estimateReadTime(content: string): number {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Markdown → HTML (lightweight)                                      */
+/*  Markdown → HTML (using marked)                                     */
 /* ------------------------------------------------------------------ */
 
 function markdownToHtml(md: string): string {
-  let html = md
-    // Headings
-    .replace(/^### (.+)$/gm, '<h3 class="text-lg font-bold text-[#374151] mt-8 mb-3">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="text-2xl font-bold text-[#374151] mt-10 mb-4">$2</h2>')
-    .replace(/^# (.+)$/gm, '<h2 class="text-3xl font-extrabold text-[#374151] mt-10 mb-4">$1</h2>')
-    // Bold & italic
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[#22c55e] hover:text-[#16a34a] underline">$1</a>')
-    // Unordered lists
-    .replace(/^\*   (.+)$/gm, '<li class="ml-6 list-disc text-gray-700 mb-1">$1</li>')
-    // Horizontal rule
-    .replace(/^---$/gm, '<hr class="my-8 border-gray-200" />');
-
-  // Wrap consecutive <li> in <ul>
-  html = html.replace(
-    /(<li[^>]*>.*?<\/li>\n?)+/g,
-    (match) => `<ul class="my-4 space-y-1">${match}</ul>`
-  );
-
-  // Paragraphs: wrap lines that aren't already HTML tags
-  html = html
-    .split("\n\n")
-    .map((block) => {
-      const trimmed = block.trim();
-      if (!trimmed) return "";
-      if (trimmed.startsWith("<")) return trimmed;
-      return `<p class="text-gray-700 leading-relaxed mb-4">${trimmed}</p>`;
-    })
-    .join("\n");
-
-  return html;
+  // Replace literal \n sequences with real newlines
+  const cleaned = md.replace(/\\n/g, "\n");
+  return marked.parse(cleaned, { async: false }) as string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -302,7 +273,7 @@ export default async function GuidePage({
 
           {/* ── Article body ── */}
           <div
-            className="prose-custom"
+            className="prose prose-lg prose-gray max-w-none prose-headings:text-[#374151] prose-a:text-[#22c55e] hover:prose-a:text-[#16a34a]"
             dangerouslySetInnerHTML={{ __html: bodyHtml }}
           />
 
