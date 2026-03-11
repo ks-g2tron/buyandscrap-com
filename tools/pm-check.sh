@@ -15,10 +15,14 @@ cd "$REPO"
 # Get recent git log
 RECENT_COMMITS=$(git log --oneline -5 2>/dev/null || echo "No commits yet")
 
-# Check for blocker file
+# Check for blocker file - only flag if it contains 🚨 or "BLOCKED:" markers
 BLOCKER=""
 if [ -f "$REPO/BLOCKER.md" ]; then
-  BLOCKER=$(cat "$REPO/BLOCKER.md")
+  RAW=$(cat "$REPO/BLOCKER.md")
+  # Only treat as a real blocker if the file contains active blocker markers
+  if echo "$RAW" | grep -qE "^## BLOCKER|Status: BLOCKED"; then
+    BLOCKER="$RAW"
+  fi
 fi
 
 # Check for status file
