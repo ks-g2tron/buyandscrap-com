@@ -43,7 +43,7 @@ export async function getUnsplashImage(query: string): Promise<UnsplashImage> {
   if (!accessKey) {
     // Fallback when no API key is available (build-time, CI, etc.)
     return {
-      url: `https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=1200&h=600&fit=crop`,
+      url: `https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200&h=600&fit=crop&q=80`,
       photographer: "Unsplash",
       profileLink: "https://unsplash.com",
       attributionLink: "https://unsplash.com",
@@ -89,7 +89,7 @@ export async function getUnsplashImage(query: string): Promise<UnsplashImage> {
     return image;
   } catch {
     return {
-      url: `https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=1200&h=600&fit=crop`,
+      url: `https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200&h=600&fit=crop&q=80`,
       photographer: "Unsplash",
       profileLink: "https://unsplash.com",
       attributionLink: "https://unsplash.com",
