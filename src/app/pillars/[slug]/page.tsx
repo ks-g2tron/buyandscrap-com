@@ -22,6 +22,7 @@ interface PillarContent {
   cta: string;
   ctaLink: string;
   wordCount?: number;
+  image?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -52,6 +53,7 @@ function getAllPillars(): PillarContent[] {
         cta: raw.cta || "Browse Cheap Cars",
         ctaLink: raw.ctaLink || "/cars",
         wordCount: raw.wordCount || 0,
+        image: raw.image || "",
       });
     } catch {
       // skip bad files
@@ -127,7 +129,9 @@ export async function generateMetadata({
   const pillar = getPillarBySlug(slug);
   if (!pillar) return { title: "Guide Not Found" };
 
-  const image = await getUnsplashImage(pillar.targetKeyword || pillar.title);
+  const ogImageUrl = pillar.image
+    ? `https://buyandscrap.vercel.app${pillar.image}`
+    : (await getUnsplashImage(pillar.targetKeyword || pillar.title)).url;
 
   return {
     title: pillar.title,
@@ -137,13 +141,13 @@ export async function generateMetadata({
       title: pillar.title,
       description: pillar.metaDescription,
       type: "article",
-      images: [{ url: image.url, width: 1200, height: 600, alt: pillar.title }],
+      images: [{ url: ogImageUrl, width: 1200, height: 600, alt: pillar.title }],
     },
     twitter: {
       card: "summary_large_image",
       title: pillar.title,
       description: pillar.metaDescription,
-      images: [image.url],
+      images: [ogImageUrl],
     },
   };
 }
@@ -161,7 +165,8 @@ export default async function PillarPage({
   const pillar = getPillarBySlug(slug);
   if (!pillar) notFound();
 
-  const image = await getUnsplashImage(pillar.targetKeyword || pillar.title);
+  const unsplashImage = pillar.image ? null : await getUnsplashImage(pillar.targetKeyword || pillar.title);
+  const heroImageUrl = pillar.image || unsplashImage?.url || "";
   const readTime = estimateReadTime(pillar.content);
   const categoryLabel = PILLAR_LABELS[pillar.pillar || ""] || "Complete Guide";
   const bodyHtml = markdownToHtml(pillar.content);
@@ -173,31 +178,33 @@ export default async function PillarPage({
       <div className="relative w-full h-[420px] md:h-[480px] overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={image.url}
+          src={heroImageUrl}
           alt={pillar.title}
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-        <div className="absolute bottom-4 right-4 text-xs text-white/70">
-          Photo by{" "}
-          <a
-            href={image.profileLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-white"
-          >
-            {image.photographer}
-          </a>{" "}
-          on{" "}
-          <a
-            href={image.attributionLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-white"
-          >
-            Unsplash
-          </a>
-        </div>
+        {!pillar.image && unsplashImage && (
+          <div className="absolute bottom-4 right-4 text-xs text-white/70">
+            Photo by{" "}
+            <a
+              href={unsplashImage.profileLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-white"
+            >
+              {unsplashImage.photographer}
+            </a>{" "}
+            on{" "}
+            <a
+              href={unsplashImage.attributionLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-white"
+            >
+              Unsplash
+            </a>
+          </div>
+        )}
       </div>
 
       <article className="max-w-3xl mx-auto px-4 -mt-24 relative z-10">
