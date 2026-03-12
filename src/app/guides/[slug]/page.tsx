@@ -21,6 +21,7 @@ interface GuideContent {
   cta: string;
   ctaLink: string;
   wordCount?: number;
+  image?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -95,6 +96,7 @@ function normalizeGuide(raw: Record<string, unknown>, category: string): GuideCo
     cta: (data.cta as string) || "Browse Cheap Cars",
     ctaLink: (data.ctaLink as string) || "/cars",
     wordCount: (data.wordCount as number) || 0,
+    image: (data.image as string) || "",
   };
 }
 
@@ -163,7 +165,9 @@ export async function generateMetadata({
   const guide = getGuideBySlug(slug);
   if (!guide) return { title: "Guide Not Found" };
 
-  const image = await getUnsplashImage(guide.targetKeyword || guide.title);
+  const ogImageUrl = guide.image
+    ? `https://buyandscrap.vercel.app${guide.image}`
+    : (await getUnsplashImage(guide.targetKeyword || guide.title)).url;
 
   return {
     title: guide.title,
@@ -173,13 +177,13 @@ export async function generateMetadata({
       title: guide.title,
       description: guide.metaDescription,
       type: "article",
-      images: [{ url: image.url, width: 1200, height: 600, alt: guide.title }],
+      images: [{ url: ogImageUrl, width: 1200, height: 600, alt: guide.title }],
     },
     twitter: {
       card: "summary_large_image",
       title: guide.title,
       description: guide.metaDescription,
-      images: [image.url],
+      images: [ogImageUrl],
     },
   };
 }
@@ -197,7 +201,8 @@ export default async function GuidePage({
   const guide = getGuideBySlug(slug);
   if (!guide) notFound();
 
-  const image = await getUnsplashImage(guide.targetKeyword || guide.title);
+  const unsplashImage = guide.image ? null : await getUnsplashImage(guide.targetKeyword || guide.title);
+  const heroImageUrl = guide.image || unsplashImage?.url || "";
   const readTime = estimateReadTime(guide.content);
   const categoryLabel = CATEGORY_LABELS[guide.pillar || ""] || "Guide";
   const related = getRelatedGuides(guide);
@@ -209,24 +214,25 @@ export default async function GuidePage({
       <div className="relative w-full h-[420px] md:h-[480px] overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={image.url}
+          src={heroImageUrl}
           alt={guide.title}
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+        {!guide.image && unsplashImage && (
         <div className="absolute bottom-4 right-4 text-xs text-white/70">
           Photo by{" "}
           <a
-            href={image.profileLink}
+            href={unsplashImage.profileLink}
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white"
           >
-            {image.photographer}
+            {unsplashImage.photographer}
           </a>{" "}
           on{" "}
           <a
-            href={image.attributionLink}
+            href={unsplashImage.attributionLink}
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-white"
@@ -234,6 +240,7 @@ export default async function GuidePage({
             Unsplash
           </a>
         </div>
+        )}
       </div>
 
       <article className="max-w-3xl mx-auto px-4 -mt-24 relative z-10">
