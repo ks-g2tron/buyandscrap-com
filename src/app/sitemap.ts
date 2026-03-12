@@ -1,5 +1,7 @@
 import { MetadataRoute } from "next";
 import { getApprovedListings } from "@/lib/data";
+import fs from "fs";
+import path from "path";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const listings = await getApprovedListings();
@@ -24,5 +26,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...listingPages];
+  // Pillar pages
+  const pillarsDir = path.join(process.cwd(), "content", "pillars");
+  const pillarPages = fs.existsSync(pillarsDir)
+    ? fs
+        .readdirSync(pillarsDir)
+        .filter((f) => f.endsWith(".json"))
+        .map((f) => {
+          const slug = f.replace(".json", "");
+          return {
+            url: `https://buyandscrap.com/pillars/${slug}`,
+            lastModified: new Date(),
+            changeFrequency: "weekly" as const,
+            priority: 0.8,
+          };
+        })
+    : [];
+
+  return [...staticPages, ...pillarPages, ...listingPages];
 }
