@@ -1,8 +1,9 @@
 #!/bin/bash
 # PM Agent Hourly Check Script
-# Checks project status, continues work, emails KS if blocked
+# Checks all project statuses, emails KS if blocked
 
 REPO="/root/.openclaw/workspace/buyandscrap"
+SITES_DIR="/root/.openclaw/workspace/sites"
 AGENTMAIL_TOKEN=$(grep AGENTMAIL_TOKEN ~/.openclaw/.env.secrets | cut -d= -f2)
 GITHUB_TOKEN=$(grep GITHUB_TOKEN ~/.openclaw/.env.secrets | cut -d= -f2)
 VERCEL_TOKEN=$(grep VERCEL_TOKEN ~/.openclaw/.env.secrets | cut -d= -f2)
@@ -56,6 +57,39 @@ if [ -n "$BLOCKER" ]; then
   
 else
   echo "✅ No blockers. Project running."
-  # Send a system event so JC can report to KS if needed
-  openclaw system event --text "📊 BuyAndScrap hourly check: No blockers. Last commits: $(git log --oneline -2 | tr '\n' ' ')" --mode now
 fi
+
+# ── Other Projects Status ──────────────────────────────────────────────────
+echo ""
+echo "=== Other Projects ==="
+
+check_site() {
+  local name=$1
+  local url=$2
+  local file=$3
+
+  if [ -n "$url" ]; then
+    HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url" 2>/dev/null)
+    if [ "$HTTP" = "200" ] || [ "$HTTP" = "301" ] || [ "$HTTP" = "302" ]; then
+      echo "✅ $name — LIVE ($url) [HTTP $HTTP]"
+    else
+      echo "⚠️  $name — NOT LIVE ($url) [HTTP $HTTP]"
+    fi
+  else
+    echo "⏳ $name — Awaiting deployment (GitHub: $file)"
+  fi
+}
+
+# Read URLs from sites files if they exist
+APPEAL_URL=$(grep -i "^Live URL:" "$SITES_DIR/appeal-my-fine.txt" 2>/dev/null | grep -v "pending" | sed 's/Live URL: //' | tr -d '[:space:]')
+MTD_URL=$(grep -i "^Expected URL:\|^Live URL:" "$SITES_DIR/mtd-ready.txt" 2>/dev/null | head -1 | sed 's/.*: //' | tr -d '[:space:]')
+CTF_URL=$(grep -i "^Live URL:\|^Expected URL:" "$SITES_DIR/council-tax-fighter.txt" 2>/dev/null | head -1 | sed 's/.*: //' | tr -d '[:space:]')
+
+check_site "AppealMyFine" "$APPEAL_URL" "github.com/ks-g2tron/appeal-my-fine"
+check_site "MTDReady" "https://mtd-ready.vercel.app" "github.com/ks-g2tron/mtd-ready"
+check_site "CouncilTaxFighter" "https://council-tax-fighter.vercel.app" "github.com/ks-g2tron/council-tax-fighter"
+check_site "BuyAndScrap" "https://buyandscrap.vercel.app" ""
+check_site "Dashboard" "https://ks-g2tron.github.io/ks-venture-dashboard/" ""
+
+# ── System Event ──────────────────────────────────────────────────────────
+openclaw system event --text "📊 Hourly check: BuyAndScrap ✅ | Last commit: $(git log --oneline -1 | cut -c1-60)" --mode now
