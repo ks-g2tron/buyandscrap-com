@@ -85,11 +85,11 @@ APPEAL_URL=$(grep -i "^Live URL:" "$SITES_DIR/appeal-my-fine.txt" 2>/dev/null | 
 MTD_URL=$(grep -i "^Expected URL:\|^Live URL:" "$SITES_DIR/mtd-ready.txt" 2>/dev/null | head -1 | sed 's/.*: //' | tr -d '[:space:]')
 CTF_URL=$(grep -i "^Live URL:\|^Expected URL:" "$SITES_DIR/council-tax-fighter.txt" 2>/dev/null | head -1 | sed 's/.*: //' | tr -d '[:space:]')
 
-check_site "AppealMyFine" "$APPEAL_URL" "github.com/ks-g2tron/appeal-my-fine"
-check_site "MTDReady" "https://mtd-ready.vercel.app" "github.com/ks-g2tron/mtd-ready"
-check_site "CouncilTaxFighter" "https://council-tax-fighter.vercel.app" "github.com/ks-g2tron/council-tax-fighter"
+check_site "AppealMyFine" "https://appeal-my-fine.vercel.app" ""
+check_site "MTDReady" "https://mtd-ready.vercel.app" ""
+check_site "CouncilTaxFighter" "https://council-tax-fighter.vercel.app" ""
 check_site "BuyAndScrap" "https://buyandscrap.vercel.app" ""
-check_site "Dashboard" "https://ks-g2tron.github.io/ks-venture-dashboard/" ""
+check_site "Dashboard" "https://ks-venture-dashboard.vercel.app" ""
 
 # ── System Event ──────────────────────────────────────────────────────────
 openclaw system event --text "📊 Hourly check: BuyAndScrap ✅ | Last commit: $(git log --oneline -1 | cut -c1-60)" --mode now
