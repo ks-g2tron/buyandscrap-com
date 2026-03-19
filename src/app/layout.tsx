@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import localFont from "next/font/local";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
@@ -54,6 +55,7 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
         <Footer />
         <CookieBanner />
+        <Script src="https://analytics.buyandscrap.com/script.js" data-website-id="a49b5c83-4797-4e25-bef2-09e9666f0f6f" strategy="afterInteractive" />
       </body>
     </html>
   );
